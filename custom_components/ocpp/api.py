@@ -102,6 +102,10 @@ from .enums import (
     Profiles as prof,
 )
 
+from .blink_hq_200 import call_result as blink_call_result
+from .blink_hq_200.action import Action as BlinkAction
+from .blink_hq_200.enums import TransactionStartedStatus, TransactionStoppedStatus
+
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 logging.getLogger(DOMAIN).setLevel(logging.INFO)
 # Uncomment these when Debugging
@@ -1168,7 +1172,9 @@ class ChargePoint(cp):
         return resp
 
     @on(Action.StatusNotification)
-    def on_status_notification(self, connector_id, error_code, status, **kwargs):
+    def on_status_notification(
+        self, connector_id, status, error_code="NoError", **kwargs
+    ):
         """Handle a status notification."""
 
         if connector_id == 0 or connector_id is None:
@@ -1340,6 +1346,28 @@ class ChargePoint(cp):
         self.hass.async_create_task(self.central.update(self.central.cpid))
         return call_result.HeartbeatPayload(
             current_time=now.strftime("%Y-%m-%dT%H:%M:%SZ")
+        )
+
+    @on(BlinkAction.TransactionStarted)
+    def on_transaction_started(self, **kwargs):
+        """Handle Blink HQ 200 TransactionStarted message."""
+
+        _LOGGER.info("Received TransactionStarted")
+
+        self.hass.async_create_task(self.central.update(self.central.cpid))
+        return blink_call_result.TransactionStartedPayload(
+            status=TransactionStartedStatus.accepted
+        )
+
+    @on(BlinkAction.TransactionStarted)
+    def on_transaction_stopped(self, **kwargs):
+        """Handle Blink HQ 200 TransactionStopped message."""
+
+        _LOGGER.info("Received TransactionStopped")
+
+        self.hass.async_create_task(self.central.update(self.central.cpid))
+        return blink_call_result.TransactionStoppedPayload(
+            status=TransactionStartedStatus.accepted
         )
 
     @property
